@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
@@ -17,8 +17,6 @@ const sampleQuestions = [
   "My heart is racing. Where can I get my blood pressure checked?",
   "I just arrived in the UK and don’t know where to go if I’m sick.",
   "I ran out of my regular medicine. What should I do?",
-  "I feel anxious and want help without seeing a doctor first.",
-  "I need help today but I don’t think it is an emergency.",
 ];
 
 function SectionCard({ children, style = {} }) {
@@ -142,14 +140,7 @@ function StructuredSection({ title, content, icon, bg, border }) {
         <span>{title}</span>
       </div>
 
-      <ul
-        style={{
-          margin: 0,
-          paddingLeft: "18px",
-          lineHeight: 1.7,
-          color: "#1F2937",
-        }}
-      >
+      <ul style={{ margin: 0, paddingLeft: "18px", lineHeight: 1.7, color: "#1F2937" }}>
         {lines.map((line, idx) => (
           <li key={idx}>{line.replace(/^[-•]\s*/, "")}</li>
         ))}
@@ -163,13 +154,7 @@ function renderAssistantContent(text) {
 
   if (!parsed) {
     return (
-      <div
-        style={{
-          whiteSpace: "pre-wrap",
-          lineHeight: 1.75,
-          fontSize: "16px",
-        }}
-      >
+      <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.75, fontSize: "16px" }}>
         {text}
       </div>
     );
@@ -223,7 +208,7 @@ export default function Home() {
     {
       role: "assistant",
       text:
-        "Hi — I can help you understand where to go for healthcare in the UK.\n\nYou do not need to know NHS terms first.\n\nYou can ask things like:\n- I have tummy ache. How can I be seen today?\n- My heart is racing. Where can I get my blood pressure checked?\n- I just arrived in the UK and don’t know where to go if I’m sick.",
+        "Hi — I can help you understand where to go for healthcare in the UK.\n\nYou can ask things like:\n- I have tummy ache. How can I be seen today?\n- My heart is racing. Where can I get my blood pressure checked?\n- I just arrived in the UK and don’t know where to go if I’m sick.",
       topic: "general_navigation",
       risk: "LOW",
     },
@@ -232,12 +217,6 @@ export default function Home() {
   const [email, setEmail] = useState("");
   const [waitlistStatus, setWaitlistStatus] = useState("");
   const [isMobile, setIsMobile] = useState(false);
-  const [locationQuery, setLocationQuery] = useState("");
-  const [locationStatus, setLocationStatus] = useState("");
-  const [copyStatus, setCopyStatus] = useState("");
-  const [feedbackStatus, setFeedbackStatus] = useState("");
-
-  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 980);
@@ -246,25 +225,11 @@ export default function Home() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "end",
-      });
-    }, 80);
-
-    return () => clearTimeout(timeout);
-  }, [chat, loading]);
-
   const sendMessageWithText = async (text) => {
     if (!text.trim() || loading) return;
 
     const userText = text.trim();
     setMessage("");
-    setFeedbackStatus("");
-    setCopyStatus("");
-
     setChat((prev) => [...prev, { role: "user", text: userText }]);
     setLoading(true);
 
@@ -272,7 +237,7 @@ export default function Home() {
       const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ message: userText }),
       });
@@ -343,94 +308,6 @@ export default function Home() {
     }
   };
 
-  const copyAnswer = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopyStatus("Answer copied.");
-      setTimeout(() => setCopyStatus(""), 1800);
-    } catch {
-      setCopyStatus("Could not copy answer.");
-    }
-  };
-
-  const sendFeedback = async (item, feedback) => {
-    try {
-      await fetch(`${BACKEND_URL}/feedback`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_input: item.originalUserInput || "",
-          response: item.text || "",
-          topic: item.topic || "unknown",
-          risk: item.risk || "unknown",
-          feedback,
-        }),
-      });
-
-      setFeedbackStatus(`Feedback saved: ${feedback}`);
-      setTimeout(() => setFeedbackStatus(""), 1800);
-    } catch {
-      setFeedbackStatus("Could not save feedback.");
-    }
-  };
-
-  const buildSearchLink = (baseUrl, q) => {
-    if (!q.trim()) return baseUrl;
-    return `${baseUrl}?q=${encodeURIComponent(q.trim())}`;
-  };
-
-  const openLocalLink = (type) => {
-    const query = locationQuery.trim();
-
-    const links = {
-      pharmacy: buildSearchLink(
-        "https://www.nhs.uk/service-search/pharmacy/find-a-pharmacy",
-        query
-      ),
-      gp: buildSearchLink(
-        "https://www.nhs.uk/service-search/find-a-gp",
-        query
-      ),
-      services: buildSearchLink(
-        "https://www.nhs.uk/nhs-services/services-near-you/",
-        query
-      ),
-      bp: buildSearchLink(
-        "https://www.nhs.uk/service-search/other-health-services/free-blood-pressure-check",
-        query
-      ),
-      nhs111: "https://111.nhs.uk/",
-    };
-
-    window.open(links[type], "_blank", "noopener,noreferrer");
-  };
-
-  const useMyLocation = () => {
-    setLocationStatus("");
-
-    if (!navigator.geolocation) {
-      setLocationStatus("Location is not supported in this browser.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude.toFixed(5);
-        const lng = position.coords.longitude.toFixed(5);
-        const coords = `${lat}, ${lng}`;
-        setLocationQuery(coords);
-        setLocationStatus("Location added.");
-        setTimeout(() => setLocationStatus(""), 1800);
-      },
-      () => {
-        setLocationStatus("Could not get your location.");
-        setTimeout(() => setLocationStatus(""), 1800);
-      }
-    );
-  };
-
   return (
     <main
       style={{
@@ -475,13 +352,7 @@ export default function Home() {
             </div>
 
             <div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: "18px",
-                  color: "#0F172A",
-                }}
-              >
+              <div style={{ fontWeight: 800, fontSize: "18px", color: "#0F172A" }}>
                 Navibot AI
               </div>
               <div style={{ fontSize: "13px", color: "#64748B" }}>
@@ -549,20 +420,9 @@ export default function Home() {
               Navibot helps people explain symptoms in everyday language and understand where to go next — such as pharmacy, GP, NHS 111, or urgent care.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                flexWrap: "wrap",
-                marginBottom: "24px",
-              }}
-            >
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "24px" }}>
               {sampleQuestions.slice(0, 2).map((q) => (
-                <button
-                  key={q}
-                  onClick={() => sendMessageWithText(q)}
-                  style={secondaryButtonStyle}
-                >
+                <button key={q} onClick={() => sendMessageWithText(q)} style={secondaryButtonStyle}>
                   {q}
                 </button>
               ))}
@@ -570,24 +430,13 @@ export default function Home() {
           </SectionCard>
 
           <SectionCard style={{ padding: isMobile ? "20px" : "26px" }}>
-            <div
-              style={{
-                fontSize: "16px",
-                fontWeight: 800,
-                marginBottom: "16px",
-                color: "#111827",
-              }}
-            >
+            <div style={{ fontSize: "16px", fontWeight: 800, marginBottom: "16px", color: "#111827" }}>
               Common questions people ask
             </div>
 
             <div style={{ display: "grid", gap: "12px", marginBottom: "18px" }}>
               {sampleQuestions.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => sendMessageWithText(item)}
-                  style={questionButtonStyle}
-                >
+                <button key={item} onClick={() => sendMessageWithText(item)} style={questionButtonStyle}>
                   {item}
                 </button>
               ))}
@@ -598,21 +447,14 @@ export default function Home() {
         <section
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 360px",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 360px",
             gap: "22px",
             alignItems: "start",
           }}
         >
           <SectionCard style={{ padding: "22px" }}>
             <div style={{ marginBottom: "16px" }}>
-              <div
-                style={{
-                  fontSize: "22px",
-                  fontWeight: 800,
-                  color: "#111827",
-                  marginBottom: "4px",
-                }}
-              >
+              <div style={{ fontSize: "22px", fontWeight: 800, color: "#111827", marginBottom: "4px" }}>
                 Chat with Navibot
               </div>
               <div style={{ fontSize: "14px", color: "#6B7280" }}>
@@ -629,17 +471,15 @@ export default function Home() {
                 borderRadius: "24px",
                 background: "linear-gradient(180deg, #F8FAFC 0%, #F3F4F6 100%)",
                 padding: isMobile ? "14px" : "18px",
-                scrollBehavior: "smooth",
               }}
             >
-              <div style={{ display: "grid", gap: "16px", paddingBottom: "8px" }}>
+              <div style={{ display: "grid", gap: "16px" }}>
                 {chat.map((item, index) => (
                   <div
                     key={index}
                     style={{
                       display: "flex",
-                      justifyContent:
-                        item.role === "user" ? "flex-end" : "flex-start",
+                      justifyContent: item.role === "user" ? "flex-end" : "flex-start",
                     }}
                   >
                     <div
@@ -653,68 +493,22 @@ export default function Home() {
                           item.role === "user"
                             ? "0 10px 28px rgba(37, 99, 235, 0.22)"
                             : "0 8px 22px rgba(15, 23, 42, 0.04)",
-                        border:
-                          item.role === "assistant" ? "1px solid #E5E7EB" : "none",
+                        border: item.role === "assistant" ? "1px solid #E5E7EB" : "none",
                       }}
                     >
                       {item.role === "assistant" ? (
                         renderAssistantContent(item.text)
                       ) : (
-                        <div
-                          style={{
-                            whiteSpace: "pre-wrap",
-                            lineHeight: 1.75,
-                            fontSize: isMobile ? "16px" : "17px",
-                          }}
-                        >
+                        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.75, fontSize: isMobile ? "16px" : "17px" }}>
                           {item.text}
                         </div>
                       )}
 
                       {item.role === "assistant" && (
-                        <>
-                          <div
-                            style={{
-                              marginTop: "16px",
-                              display: "flex",
-                              gap: "8px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <TopicBadge topic={item.topic} />
-                            <RiskBadge risk={item.risk} />
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: "12px",
-                              display: "flex",
-                              gap: "10px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <button
-                              onClick={() => copyAnswer(item.text)}
-                              style={smallActionButtonStyle}
-                            >
-                              📋 Copy answer
-                            </button>
-
-                            <button
-                              onClick={() => sendFeedback(item, "helpful")}
-                              style={smallActionButtonStyle}
-                            >
-                              👍 Helpful
-                            </button>
-
-                            <button
-                              onClick={() => sendFeedback(item, "not_helpful")}
-                              style={smallActionButtonStyle}
-                            >
-                              👎 Not helpful
-                            </button>
-                          </div>
-                        </>
+                        <div style={{ marginTop: "16px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <TopicBadge topic={item.topic} />
+                          <RiskBadge risk={item.risk} />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -736,171 +530,47 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-
-                <div ref={messagesEndRef} />
               </div>
             </div>
 
             <div
               style={{
-                position: "sticky",
-                bottom: "0",
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "1fr 130px",
+                gap: "12px",
                 marginTop: "16px",
-                paddingTop: "12px",
-                background:
-                  "linear-gradient(180deg, rgba(248,250,252,0) 0%, rgba(248,250,252,0.92) 28%, rgba(248,250,252,1) 100%)",
-                backdropFilter: "blur(8px)",
-                zIndex: 4,
+                alignItems: "center",
               }}
             >
-              <div
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleEnter}
+                placeholder="Ask in your own words..."
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 140px",
-                  gap: "12px",
-                  alignItems: "center",
+                  width: "100%",
+                  padding: isMobile ? "16px" : "18px",
+                  borderRadius: "18px",
+                  border: "1px solid #D1D5DB",
+                  fontSize: isMobile ? "16px" : "17px",
+                  outline: "none",
+                  background: "#FFFFFF",
                 }}
-              >
-                <input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleEnter}
-                  placeholder="Ask in your own words..."
-                  style={{
-                    width: "100%",
-                    padding: isMobile ? "16px" : "18px",
-                    borderRadius: "18px",
-                    border: "1px solid #D1D5DB",
-                    fontSize: isMobile ? "16px" : "17px",
-                    outline: "none",
-                    background: "#FFFFFF",
-                    boxShadow: "0 10px 25px rgba(15, 23, 42, 0.04)",
-                  }}
-                />
+              />
 
-                <button
-                  onClick={sendMessage}
-                  disabled={loading}
-                  style={{
-                    ...primaryButtonStyle,
-                    opacity: loading ? 0.7 : 1,
-                  }}
-                >
-                  Send
-                </button>
-              </div>
-
-              {(copyStatus || feedbackStatus) && (
-                <div
-                  style={{
-                    marginTop: "10px",
-                    fontSize: "13px",
-                    color: "#166534",
-                  }}
-                >
-                  {copyStatus || feedbackStatus}
-                </div>
-              )}
+              <button onClick={sendMessage} disabled={loading} style={primaryButtonStyle}>
+                Send
+              </button>
             </div>
           </SectionCard>
 
-          <div
-            style={
-              isMobile
-                ? { display: "grid", gap: "22px" }
-                : {
-                    position: "sticky",
-                    top: "24px",
-                    display: "grid",
-                    gap: "22px",
-                    alignSelf: "start",
-                  }
-            }
-          >
+          <div style={{ display: "grid", gap: "22px" }}>
             <SectionCard style={{ padding: "20px" }}>
-              <div
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 800,
-                  color: "#111827",
-                  marginBottom: "10px",
-                }}
-              >
-                Find local help
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#111827", marginBottom: "10px" }}>
+                Join waitlist
               </div>
 
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: "14px",
-                  lineHeight: 1.7,
-                  color: "#4B5563",
-                }}
-              >
-                Enter a town, city, postcode, or use your current location, then open the official NHS service finder you need.
-              </p>
-
-              <div style={{ display: "grid", gap: "10px" }}>
-                <input
-                  value={locationQuery}
-                  onChange={(e) => setLocationQuery(e.target.value)}
-                  placeholder="Example: Manchester or SW1A 1AA"
-                  style={sidebarInputStyle}
-                />
-
-                <button onClick={useMyLocation} style={sidebarGhostButtonStyle}>
-                  📡 Use my location
-                </button>
-                <button onClick={() => openLocalLink("pharmacy")} style={sidebarGhostButtonStyle}>
-                  💊 Find a pharmacy
-                </button>
-                <button onClick={() => openLocalLink("gp")} style={sidebarGhostButtonStyle}>
-                  🩺 Find a GP
-                </button>
-                <button onClick={() => openLocalLink("services")} style={sidebarGhostButtonStyle}>
-                  📍 Services near you
-                </button>
-                <button onClick={() => openLocalLink("bp")} style={sidebarGhostButtonStyle}>
-                  ❤️ BP check pharmacy
-                </button>
-                <button onClick={() => openLocalLink("nhs111")} style={sidebarGhostButtonStyle}>
-                  ☎️ NHS 111 online
-                </button>
-              </div>
-
-              {locationStatus && (
-                <div
-                  style={{
-                    marginTop: "12px",
-                    fontSize: "13px",
-                    color: "#166534",
-                  }}
-                >
-                  {locationStatus}
-                </div>
-              )}
-            </SectionCard>
-
-            <SectionCard style={{ padding: "20px" }}>
-              <div
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 800,
-                  color: "#111827",
-                  marginBottom: "10px",
-                }}
-              >
-                Stay updated
-              </div>
-
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: "14px",
-                  lineHeight: 1.7,
-                  color: "#4B5563",
-                }}
-              >
+              <p style={{ margin: "0 0 12px", fontSize: "14px", lineHeight: 1.7, color: "#4B5563" }}>
                 Leave your email to get updates when Navibot is live publicly.
               </p>
 
@@ -909,7 +579,15 @@ export default function Home() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  style={sidebarInputStyle}
+                  style={{
+                    width: "100%",
+                    padding: "14px 14px",
+                    borderRadius: "14px",
+                    border: "1px solid #D1D5DB",
+                    fontSize: "15px",
+                    outline: "none",
+                    background: "#FFFFFF",
+                  }}
                 />
 
                 <button onClick={joinWaitlist} style={darkButtonStyle}>
@@ -935,52 +613,17 @@ export default function Home() {
             </SectionCard>
 
             <SectionCard style={{ padding: "20px" }}>
-              <div
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 800,
-                  color: "#111827",
-                  marginBottom: "10px",
-                }}
-              >
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#111827", marginBottom: "10px" }}>
                 Safety note
               </div>
 
               <div style={{ fontSize: "14px", lineHeight: 1.8, color: "#4B5563" }}>
-                Navibot provides general health information only. It is not a diagnosis or emergency medical service. If you have severe symptoms, chest pain, stroke symptoms, difficulty breathing, or any emergency, seek urgent care immediately.
+                Navibot provides general health information only. It is not a diagnosis or emergency medical service.
+                If you have severe symptoms, chest pain, stroke symptoms, difficulty breathing, or any emergency,
+                seek urgent care immediately.
               </div>
             </SectionCard>
           </div>
-        </section>
-
-        <section
-          style={{
-            marginTop: "28px",
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-            gap: "18px",
-          }}
-        >
-          <SectionCard style={{ padding: "22px" }}>
-            <div style={featureTitleStyle}>Everyday language first</div>
-            <div style={featureBodyStyle}>
-              Users can ask in plain terms like “I feel sick” or “my heart is racing” without already knowing NHS pathways.
-            </div>
-          </SectionCard>
-
-          <SectionCard style={{ padding: "22px" }}>
-            <div style={featureTitleStyle}>Structured next steps</div>
-            <div style={featureBodyStyle}>
-              Responses are organized into what may help now, best place to go, urgent warning signs, and clear next steps.
-            </div>
-          </SectionCard>
-
-          <SectionCard style={{ padding: "22px" }}>
-            <div style={featureTitleStyle}>Official service routes</div>
-            <div style={featureBodyStyle}>
-              Navibot can direct users toward pharmacy, GP, NHS 111, blood pressure checks, and local NHS service finder pages.
-            </div>
-          </SectionCard>
         </section>
       </div>
     </main>
@@ -1044,88 +687,3 @@ const questionButtonStyle = {
   lineHeight: 1.45,
   color: "#111827",
 };
-
-const featureTitleStyle = {
-  fontWeight: 800,
-  fontSize: "18px",
-  color: "#111827",
-  marginBottom: "8px",
-};
-
-const featureBodyStyle = {
-  color: "#4B5563",
-  lineHeight: 1.75,
-  fontSize: "15px",
-};
-
-const sidebarInputStyle = {
-  width: "100%",
-  padding: "14px 14px",
-  borderRadius: "14px",
-  border: "1px solid #D1D5DB",
-  fontSize: "15px",
-  outline: "none",
-  background: "#FFFFFF",
-};
-
-const sidebarGhostButtonStyle = {
-  width: "100%",
-  padding: "14px 14px",
-  borderRadius: "14px",
-  border: "1px solid #D1D5DB",
-  background: "#FFFFFF",
-  color: "#111827",
-  fontWeight: 700,
-  fontSize: "15px",
-  cursor: "pointer",
-};
-
-const smallActionButtonStyle = {
-  padding: "10px 12px",
-  borderRadius: "12px",
-  border: "1px solid #D1D5DB",
-  background: "#FFFFFF",
-  cursor: "pointer",
-  fontWeight: 700,
-  fontSize: "13px",
-  color: "#111827",
-};
-<div style={{ marginTop: "20px" }}>
-  <input
-    type="email"
-    placeholder="Enter your email for updates"
-    id="emailInput"
-    style={{
-      padding: "10px",
-      width: "250px",
-      marginRight: "10px",
-      borderRadius: "6px",
-      border: "1px solid #ccc"
-    }}
-  />
-  <button
-    onClick={async () => {
-      const email = document.getElementById("emailInput").value;
-      if (!email) return alert("Enter email");
-
-      await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/waitlist`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email })
-      });
-
-      alert("You're on the waitlist!");
-    }}
-    style={{
-      padding: "10px 15px",
-      backgroundColor: "#0070f3",
-      color: "white",
-      borderRadius: "6px",
-      border: "none"
-    }}
-  >
-    Join
-  </button>
-</div>

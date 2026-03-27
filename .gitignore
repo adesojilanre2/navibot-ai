@@ -1,3 +1,4 @@
+navibot_backup/
 backend/.env
 frontend/.env.local
 venv/
