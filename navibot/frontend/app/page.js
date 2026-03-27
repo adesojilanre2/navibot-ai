@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
-  const [mode, setMode] = useState("chat");
+  const [activeTab, setActiveTab] = useState("chat");
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,261 +18,366 @@ export default function Home() {
   const sendMessage = async () => {
     if (!message.trim()) return;
 
-    const userMsg = { role: "user", text: message };
-    setChat((prev) => [...prev, userMsg]);
-
-    setLoading(true);
+    const userText = message.trim();
+    setChat((prev) => [...prev, { role: "user", text: userText }]);
     setMessage("");
-
-    const formData = new FormData();
-    formData.append("user_input", message);
+    setLoading(true);
 
     try {
-      const res = await fetch(`${BACKEND_URL}/triage`, {
+      const formData = new FormData();
+      formData.append("user_input", userText);
+
+      const res = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
         body: formData,
       });
 
+      if (!res.ok) {
+        throw new Error("Failed to get chat response.");
+      }
+
       const data = await res.json();
 
-      const aiMsg = {
-        role: "ai",
-        text: `Risk Level: ${data.risk_level}\n\nAdvice: ${data.advice}`,
-      };
-
-      setChat((prev) => [...prev, aiMsg]);
-    } catch (err) {
       setChat((prev) => [
         ...prev,
-        { role: "ai", text: "Error connecting to backend." },
+        {
+          role: "ai",
+          text: data.response || "No response returned.",
+        },
       ]);
+    } catch (error) {
+      setChat((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: "Error connecting to backend.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const checkBP = async () => {
-    if (!systolic || !diastolic) {
-      setBpResult("Please enter both systolic and diastolic values.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("systolic", systolic);
-    formData.append("diastolic", diastolic);
+    if (!systolic || !diastolic) return;
 
     try {
+      const formData = new FormData();
+      formData.append("systolic", systolic);
+      formData.append("diastolic", diastolic);
+
       const res = await fetch(`${BACKEND_URL}/bp-log`, {
         method: "POST",
         body: formData,
       });
 
+      if (!res.ok) {
+        throw new Error("Failed to check blood pressure.");
+      }
+
       const data = await res.json();
       setBpResult(data.message || "No result returned.");
-    } catch (err) {
-      setBpResult("Error checking blood pressure.");
+    } catch (error) {
+      setBpResult("Error connecting to backend.");
     }
   };
 
   return (
     <main
       style={{
-        maxWidth: "900px",
-        margin: "0 auto",
-        padding: "20px",
+        minHeight: "100vh",
+        background: "#f7f7f8",
+        padding: "40px 20px",
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <h1 style={{ textAlign: "center", marginBottom: "5px" }}>Navibot AI</h1>
-      <p style={{ textAlign: "center", marginTop: "0", color: "#444" }}>
-        NHS-style AI health assistant
-      </p>
-
-      <div style={{ textAlign: "center", marginTop: "15px", marginBottom: "20px" }}>
-        <button
-          onClick={() => setMode("chat")}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "8px",
-            border: "none",
-            background: mode === "chat" ? "#007bff" : "#ddd",
-            color: mode === "chat" ? "white" : "black",
-            cursor: "pointer",
-          }}
-        >
-          Chat
-        </button>
-
-        <button
-          onClick={() => setMode("bp")}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "8px",
-            border: "none",
-            background: mode === "bp" ? "#007bff" : "#ddd",
-            color: mode === "bp" ? "white" : "black",
-            cursor: "pointer",
-            marginLeft: "10px",
-          }}
-        >
-          Blood Pressure
-        </button>
-      </div>
-
-      {mode === "chat" ? (
-        <>
-          <div
-            style={{
-              marginTop: "20px",
-              minHeight: "400px",
-              border: "1px solid #ddd",
-              borderRadius: "10px",
-              padding: "15px",
-              background: "#fafafa",
-            }}
-          >
-            {chat.map((msg, index) => (
-              <div
-                key={index}
-                style={{
-                  marginBottom: "12px",
-                  textAlign: msg.role === "user" ? "right" : "left",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-block",
-                    padding: "10px 14px",
-                    borderRadius: "12px",
-                    background: msg.role === "user" ? "#007bff" : "#e5e5ea",
-                    color: msg.role === "user" ? "white" : "black",
-                    maxWidth: "70%",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-
-            {loading && <p>Thinking...</p>}
-          </div>
-
-          <div style={{ marginTop: "15px", display: "flex", gap: "10px" }}>
-            <input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ask about your health..."
-              style={{
-                flex: 1,
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ccc",
-              }}
-            />
-
-            <button
-              onClick={sendMessage}
-              style={{
-                padding: "12px 20px",
-                borderRadius: "8px",
-                border: "none",
-                background: "#007bff",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Send
-            </button>
-          </div>
-        </>
-      ) : (
-        <div
-          style={{
-            marginTop: "20px",
-            border: "1px solid #ddd",
-            borderRadius: "10px",
-            padding: "20px",
-            background: "#fafafa",
-          }}
-        >
-          <h2>Blood Pressure Checker</h2>
-          <p>Enter your blood pressure readings below.</p>
-
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "15px" }}>
-            <input
-              type="number"
-              placeholder="Systolic (e.g. 120)"
-              value={systolic}
-              onChange={(e) => setSystolic(e.target.value)}
-              style={{
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ccc",
-                width: "220px",
-              }}
-            />
-
-            <input
-              type="number"
-              placeholder="Diastolic (e.g. 80)"
-              value={diastolic}
-              onChange={(e) => setDiastolic(e.target.value)}
-              style={{
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ccc",
-                width: "220px",
-              }}
-            />
-          </div>
-
-          <button
-            onClick={checkBP}
-            style={{
-              marginTop: "15px",
-              padding: "12px 20px",
-              borderRadius: "8px",
-              border: "none",
-              background: "#007bff",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            Check BP
-          </button>
-
-          {bpResult && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "15px",
-                borderRadius: "8px",
-                background: "#e5e5ea",
-              }}
-            >
-              <strong>Result:</strong>
-              <p style={{ marginTop: "8px" }}>{bpResult}</p>
-            </div>
-          )}
-        </div>
-      )}
-
       <div
         style={{
-          marginTop: "25px",
-          paddingTop: "15px",
-          borderTop: "1px solid #ddd",
-          fontSize: "14px",
-          color: "#555",
-          lineHeight: "1.5",
+          maxWidth: "920px",
+          margin: "0 auto",
         }}
       >
-        <strong>Medical disclaimer:</strong> Navibot provides general health
-        information only. It is not a diagnosis, emergency service, or substitute
-        for a licensed clinician. If you have severe symptoms, chest pain, trouble
-        breathing, stroke symptoms, suicidal thoughts, or any medical emergency,
-        call emergency services or seek urgent medical care immediately.
+        <h1
+          style={{
+            textAlign: "center",
+            marginBottom: "8px",
+            fontSize: "48px",
+            fontWeight: "700",
+          }}
+        >
+          Navibot AI
+        </h1>
+
+        <p
+          style={{
+            textAlign: "center",
+            marginBottom: "24px",
+            color: "#444",
+            fontSize: "24px",
+          }}
+        >
+          NHS-style AI health assistant
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "12px",
+            marginBottom: "24px",
+          }}
+        >
+          <button
+            onClick={() => setActiveTab("chat")}
+            style={{
+              padding: "12px 20px",
+              borderRadius: "10px",
+              border: "none",
+              cursor: "pointer",
+              background: activeTab === "chat" ? "#0070f3" : "#e5e7eb",
+              color: activeTab === "chat" ? "white" : "black",
+              fontSize: "18px",
+            }}
+          >
+            Chat
+          </button>
+
+          <button
+            onClick={() => setActiveTab("bp")}
+            style={{
+              padding: "12px 20px",
+              borderRadius: "10px",
+              border: "none",
+              cursor: "pointer",
+              background: activeTab === "bp" ? "#0070f3" : "#e5e7eb",
+              color: activeTab === "bp" ? "white" : "black",
+              fontSize: "18px",
+            }}
+          >
+            Blood Pressure
+          </button>
+        </div>
+
+        {activeTab === "chat" ? (
+          <div
+            style={{
+              border: "1px solid #ddd",
+              borderRadius: "14px",
+              background: "white",
+              padding: "16px",
+            }}
+          >
+            <div
+              style={{
+                height: "420px",
+                overflowY: "auto",
+                border: "1px solid #ddd",
+                borderRadius: "12px",
+                padding: "14px",
+                marginBottom: "16px",
+                background: "#fafafa",
+              }}
+            >
+              {chat.length === 0 ? (
+                <div style={{ color: "#777", marginTop: "8px" }}>
+                  Start a conversation about your health.
+                </div>
+              ) : (
+                chat.map((item, index) => (
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      justifyContent:
+                        item.role === "user" ? "flex-end" : "flex-start",
+                      marginBottom: "14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        maxWidth: "75%",
+                        padding: "14px 16px",
+                        borderRadius: "14px",
+                        background:
+                          item.role === "user" ? "#0070f3" : "#e5e7eb",
+                        color: item.role === "user" ? "white" : "black",
+                        whiteSpace: "pre-wrap",
+                        lineHeight: "1.5",
+                        fontSize: "17px",
+                      }}
+                    >
+                      {item.text}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {loading && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: "75%",
+                      padding: "14px 16px",
+                      borderRadius: "14px",
+                      background: "#e5e7eb",
+                      color: "black",
+                      fontSize: "17px",
+                    }}
+                  >
+                    Thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "10px",
+              }}
+            >
+              <input
+                type="text"
+                placeholder="Ask about your health..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") sendMessage();
+                }}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: "10px",
+                  border: "1px solid #ccc",
+                  fontSize: "17px",
+                }}
+              />
+
+              <button
+                onClick={sendMessage}
+                disabled={loading}
+                style={{
+                  padding: "14px 22px",
+                  borderRadius: "10px",
+                  border: "none",
+                  background: "#0070f3",
+                  color: "white",
+                  cursor: "pointer",
+                  fontSize: "17px",
+                }}
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              border: "1px solid #ddd",
+              borderRadius: "14px",
+              background: "white",
+              padding: "20px",
+            }}
+          >
+            <h2 style={{ marginBottom: "8px", fontSize: "28px" }}>
+              Blood Pressure Checker
+            </h2>
+
+            <p style={{ marginBottom: "16px", color: "#444", fontSize: "18px" }}>
+              Enter your blood pressure readings below.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                marginBottom: "16px",
+              }}
+            >
+              <input
+                type="number"
+                placeholder="Systolic"
+                value={systolic}
+                onChange={(e) => setSystolic(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: "10px",
+                  border: "1px solid #ccc",
+                  fontSize: "17px",
+                }}
+              />
+
+              <input
+                type="number"
+                placeholder="Diastolic"
+                value={diastolic}
+                onChange={(e) => setDiastolic(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: "10px",
+                  border: "1px solid #ccc",
+                  fontSize: "17px",
+                }}
+              />
+            </div>
+
+            <button
+              onClick={checkBP}
+              style={{
+                padding: "14px 22px",
+                borderRadius: "10px",
+                border: "none",
+                background: "#0070f3",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "17px",
+                marginBottom: "16px",
+              }}
+            >
+              Check BP
+            </button>
+
+            {bpResult && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  padding: "16px",
+                  borderRadius: "12px",
+                  background: "#e5e7eb",
+                  fontSize: "18px",
+                }}
+              >
+                <strong>Result:</strong>
+                <p style={{ marginTop: "8px" }}>{bpResult}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: "18px",
+            paddingTop: "16px",
+            borderTop: "1px solid #ddd",
+            color: "#444",
+            lineHeight: "1.6",
+            fontSize: "16px",
+          }}
+        >
+          <strong>Medical disclaimer:</strong> Navibot provides general health
+          information only. It is not a diagnosis, emergency service, or
+          substitute for a licensed clinician. If you have severe symptoms,
+          chest pain, trouble breathing, stroke symptoms, suicidal thoughts, or
+          any medical emergency, call emergency services or seek urgent medical
+          care immediately.
+        </div>
       </div>
     </main>
   );
