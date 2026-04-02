@@ -219,18 +219,21 @@ function renderAssistantContent(text) {
 
 export default function Home() {
   const [message, setMessage] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [waitlistStatus, setWaitlistStatus] = useState("");
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+
   const [chat, setChat] = useState([
     {
       role: "assistant",
-      text:
-        "Hi — I can help you understand where to go for healthcare in the UK.\n\nYou do not need to know NHS terms first.\n\nYou can ask things like:\n- I have tummy ache. How can I be seen today?\n- My heart is racing. Where can I get my blood pressure checked?\n- I just arrived in the UK and don’t know where to go if I’m sick.",
+      text: "Hi – I can help you understand where to go for healthcare in the UK.",
       topic: "general_navigation",
       risk: "LOW",
     },
   ]);
+
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [waitlistStatus, setWaitlistStatus] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
   const [locationStatus, setLocationStatus] = useState("");
